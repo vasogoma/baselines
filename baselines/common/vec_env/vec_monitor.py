@@ -28,6 +28,10 @@ class VecMonitor(VecEnvWrapper):
 
     def step_wait(self):
         obs, rews, dones, infos = self.venv.step_wait()
+        rews_p1=[]
+        for i in range(len(rews)):
+            rews_p1.append(rews[i][0])
+        rews=rews_p1
         self.eprets += rews
         self.eplens += 1
         newinfos = []

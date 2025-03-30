@@ -11,13 +11,13 @@ class Runner(AbstractEnvRunner):
     run():
     - Make a mini batch
     """
-    def __init__(self, *, env, model, nsteps, gamma, lam):
+    def __init__(self, *, env, opp,model, nsteps, gamma, lam):
         super().__init__(env=env, model=model, nsteps=nsteps)
         # Lambda used in GAE (General Advantage Estimation)
         self.lam = lam
         # Discount rate
         self.gamma = gamma
-
+        self.opp = opp
     def run(self):
         # Here, we init the lists that will contain the mb of experiences
         mb_obs, mb_rewards, mb_actions, mb_values, mb_dones, mb_neglogpacs = [],[],[],[],[],[]
@@ -29,7 +29,17 @@ class Runner(AbstractEnvRunner):
             # We already have self.obs because Runner superclass run self.obs[:] = env.reset() on init
             obs = tf.constant(self.obs)
             actions, values, self.states, neglogpacs = self.model.step(obs)
+
             actions = actions._numpy()
+            if self.opp is None: # If there is no opponent, just get the action from the model (AI mode)
+                action_array = []
+                action_array.extend(actions)
+            else: # If there is an opponent, get the action from the opponent (VS mode)
+                action_array = []
+                for i in range(self.obs.shape[0]):
+                    #print("obs:",self.obs[i])
+                    action_opponent = self.opp.policy(self.obs[i])
+                    action_array.extend([actions[i], action_opponent])
             mb_obs.append(self.obs.copy())
             mb_actions.append(actions)
             mb_values.append(values._numpy())
@@ -38,11 +48,13 @@ class Runner(AbstractEnvRunner):
 
             # Take actions in env and look the results
             # Infos contains a ton of useful informations
-            self.obs[:], rewards, self.dones, infos = self.env.step(actions)
+            obs1, rewards, self.dones, infos = self.env.step([action_array])
+            rewards = rewards[0]
+            self.obs[:] = obs1
             for info in infos:
                 maybeepinfo = info.get('episode')
                 if maybeepinfo: epinfos.append(maybeepinfo)
-            mb_rewards.append(rewards)
+            mb_rewards.append([rewards])
 
         #batch of steps to batch of rollouts
         mb_obs = np.asarray(mb_obs, dtype=self.obs.dtype)

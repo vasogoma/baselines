@@ -108,7 +108,7 @@ def huber_loss(x, delta=1.0):
 class DEEPQ(tf.Module):
 
     def __init__(self, q_func, observation_shape, num_actions, lr, grad_norm_clipping=None, gamma=1.0,
-        double_q=True, param_noise=False, param_noise_filter_func=None):
+        double_q=True, param_noise=False, param_noise_filter_func=None,adam_epsilon=1e-4):
 
       self.num_actions = num_actions
       self.gamma = gamma
@@ -117,7 +117,7 @@ class DEEPQ(tf.Module):
       self.param_noise_filter_func = param_noise_filter_func
       self.grad_norm_clipping = grad_norm_clipping
 
-      self.optimizer = tf.keras.optimizers.Adam(lr)
+      self.optimizer = tf.keras.optimizers.Adam(lr, epsilon=adam_epsilon)
 
       with tf.name_scope('q_network'):
         self.q_network = q_func(observation_shape, num_actions)

@@ -20,7 +20,20 @@ def constfn(val):
 def learn(*, network, env, total_timesteps, eval_env = None, seed=None, nsteps=2048, ent_coef=0.0, lr=3e-4,
             vf_coef=0.5,  max_grad_norm=0.5, gamma=0.99, lam=0.95,
             log_interval=10, nminibatches=4, noptepochs=4, cliprange=0.2,
-            save_interval=0, load_path=None, model_fn=None, **network_kwargs):
+            save_interval=0, load_path=None, model_fn=None,
+            load_from_previous_checkpoint=False,
+            metric_log_folder=None,
+            new_env_fn=None,
+            opponent=None,
+            mode="ai",
+            ai_level=1,
+            new_env_state=None,
+            new_env_char_list='all', 
+            adam_eps=1e-4,
+            callback=None,
+            train_freq=1, # Re train the model every episode
+            learning_starts=1000, # Will only start learning after this many steps (almost 1 episode)
+              **network_kwargs):
     '''
     Learn policy using PPO algorithm (https://arxiv.org/abs/1707.06347)
 
@@ -109,14 +122,23 @@ def learn(*, network, env, total_timesteps, eval_env = None, seed=None, nsteps=2
     model = model_fn(ac_space=ac_space, policy_network=network, ent_coef=ent_coef, vf_coef=vf_coef,
                      max_grad_norm=max_grad_norm)
 
-    if load_path is not None:
+    model_saved = False
+    summary_writer = tf.summary.create_file_writer(metric_log_folder)
+
+    ckpt = tf.train.Checkpoint(model=model)
+    manager = tf.train.CheckpointManager(ckpt, load_path, max_to_keep=100)
+    
+    
+    if load_path is not None and load_from_previous_checkpoint:
         load_path = osp.expanduser(load_path)
         ckpt = tf.train.Checkpoint(model=model)
         manager = tf.train.CheckpointManager(ckpt, load_path, max_to_keep=None)
         ckpt.restore(manager.latest_checkpoint)
+        print("Restoring from {}".format(manager.latest_checkpoint))
+        model_saved = True
 
     # Instantiate the runner object
-    runner = Runner(env=env, model=model, nsteps=nsteps, gamma=gamma, lam=lam)
+    runner = Runner(env=env,opp=opponent, model=model, nsteps=nsteps, gamma=gamma, lam=lam)
     if eval_env is not None:
         eval_runner = Runner(env = eval_env, model = model, nsteps = nsteps, gamma = gamma, lam= lam)
 
@@ -127,8 +149,21 @@ def learn(*, network, env, total_timesteps, eval_env = None, seed=None, nsteps=2
     # Start total timer
     tfirststart = time.perf_counter()
 
+    done = False
+    prev_episode_num = -1
+    prev_step_count = 0
+    prev_done = False
+    filename_to_delete = None
+    cum_reward=0    
+    step_count=0
+    ep_rewards = []
+    ep_rewards_filt = []
+
     nupdates = total_timesteps//nbatch
     for update in range(1, nupdates+1):
+        if callback is not None:
+            if callback(locals(), globals()):
+                break
         assert nbatch % nminibatches == 0
         # Start timer
         tstart = time.perf_counter()
@@ -143,7 +178,6 @@ def learn(*, network, env, total_timesteps, eval_env = None, seed=None, nsteps=2
         obs, returns, masks, actions, values, neglogpacs, states, epinfos = runner.run() #pylint: disable=E0632
         if eval_env is not None:
             eval_obs, eval_returns, eval_masks, eval_actions, eval_values, eval_neglogpacs, eval_states, eval_epinfos = eval_runner.run() #pylint: disable=E0632
-
         epinfobuf.extend(epinfos)
         if eval_env is not None:
             eval_epinfobuf.extend(eval_epinfos)
