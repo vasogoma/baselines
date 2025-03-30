@@ -31,6 +31,7 @@ class Runner(AbstractEnvRunner):
             actions, values, self.states, neglogpacs = self.model.step(obs)
 
             actions = actions._numpy()
+            #START OF MY CODE
             if self.opp is None: # If there is no opponent, just get the action from the model (AI mode)
                 action_array = []
                 action_array.extend(actions)
@@ -40,6 +41,7 @@ class Runner(AbstractEnvRunner):
                     #print("obs:",self.obs[i])
                     action_opponent = self.opp.policy(self.obs[i])
                     action_array.extend([actions[i], action_opponent])
+            #END OF MY CODE
             mb_obs.append(self.obs.copy())
             mb_actions.append(actions)
             mb_values.append(values._numpy())
@@ -48,6 +50,7 @@ class Runner(AbstractEnvRunner):
 
             # Take actions in env and look the results
             # Infos contains a ton of useful informations
+            #START OF MY CODE
             obs1, rewards, self.dones, infos = self.env.step([action_array])
             rewards = rewards[0]
             self.obs[:] = obs1
@@ -55,7 +58,7 @@ class Runner(AbstractEnvRunner):
                 maybeepinfo = info.get('episode')
                 if maybeepinfo: epinfos.append(maybeepinfo)
             mb_rewards.append([rewards])
-
+            #END OF MY CODE
         #batch of steps to batch of rollouts
         mb_obs = np.asarray(mb_obs, dtype=self.obs.dtype)
         mb_rewards = np.asarray(mb_rewards, dtype=np.float32)

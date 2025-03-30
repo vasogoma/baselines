@@ -1,3 +1,10 @@
+"""
+Code made by Valeria Gonzalez by adapting it from OpenAI' baselines implementation: https://github.com/openai/baselines
+
+
+
+"""
+
 import logging
 import os.path as osp
 
@@ -140,6 +147,7 @@ def learn(env,
     )
 
     #Define metrics
+    
     summary_writer = tf.summary.create_file_writer(metric_log_folder)
     model_saved = False
     ckpt = tf.train.Checkpoint(model=model)
@@ -177,6 +185,7 @@ def learn(env,
     reset = True
     done = False
     prev_episode_num = -1
+    #START OF MY ADAPTED CODE
     prev_step_count = 0
     prev_done = False
     filename_to_delete = None
@@ -354,7 +363,7 @@ def learn(env,
             ep_rewards_filt = []
             cum_reward=0
             step_count=0
-
+    #END OF MY ADAPTED CODE
     #save the last checkpoint
     logging.error("Saving last checkpoint")
     manager.save()
